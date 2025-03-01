@@ -13,9 +13,7 @@
             font-family: Arial, sans-serif;
             color: #dcdcdc;
         }
-        #canvas {
-            display: block;
-        }
+        #canvas { display: block; }
         .panel {
             position: absolute;
             background-color: rgba(20, 20, 20, 0.8);
@@ -143,11 +141,9 @@
     </div>
 
     <script>
-        // Canvas setup
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Make canvas full screen
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -155,7 +151,6 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Constants
         const COLORS = {
             BLACK: '#000000',
             WHITE: '#FFFFFF',
@@ -175,20 +170,19 @@
             LEAD2: 10
         };
         
-        // Simulation parameters
         let offset = { x: canvas.width / 2 + 150, y: canvas.height / 4 };
         const scale = 100;
         let running = false;
         let tracing = true;
         let t = 0.0;
         
-        // Improved time scaling parameters
         let lastFrameTime = 0;
         let frameRateHistory = [];
-        let targetFrameRate = 60; // Default target
+        let targetFrameRate = 60;
         let actualFrameRate = 60;
         let useAdaptiveTiming = true;
-        let timeScale = 1.0;  // Time scale factor
+        let timeScale = 1.0;
+        let tabActive = true;
         
         let m = 2.0;
         let l_eq = 2.0;
@@ -198,10 +192,8 @@
         let theta_init = Math.PI / 4;
         let r_init = 0.0;
         
-        // State vector: [r_dot, theta_dot, r, theta]
         let y = [0.0, 0.0, r_init, theta_init];
         
-        // Trace canvas
         const traceCanvas = document.createElement('canvas');
         traceCanvas.width = canvas.width;
         traceCanvas.height = canvas.height;
@@ -210,12 +202,10 @@
         
         let prevPoint = null;
         
-        // Anchor dragging
         let draggingAnchor = false;
         const anchorRadius = 15;
         let wasRunning = false;
         
-        // UI elements
         const thetaSlider = document.getElementById('theta-slider');
         const rSlider = document.getElementById('r-slider');
         const gSlider = document.getElementById('g-slider');
@@ -241,7 +231,6 @@
         const velocityInfo = document.getElementById('velocity-info');
         const framerateInfo = document.getElementById('framerate-info');
         
-        // Spring calculation function
         function calculateSpring(start, end, nodes) {
             const vec = {
                 x: end.x - start.x,
@@ -285,7 +274,6 @@
             return { points, p1, p2 };
         }
         
-        // Physics equations
         function G(y, t) {
             const r_dot = y[0];
             const theta_dot = y[1];
@@ -300,7 +288,6 @@
             return [r_ddot, theta_ddot, r_dot, theta_dot];
         }
         
-        // RK4 integrator
         function RK4_step(y, t, dt) {
             const k1 = G(y, t);
             
@@ -316,7 +303,6 @@
             return k1.map((val, i) => dt * (val + 2 * k2[i] + 2 * k3[i] + k4[i]) / 6);
         }
         
-        // Get pendulum position
         function getPointCoordinates() {
             const r = y[2];
             const theta = y[3];
@@ -327,7 +313,6 @@
             return { x, y: y_coord };
         }
         
-        // Draw spring
         function drawSpring(start, end) {
             const result = calculateSpring(start, end, SPRING.NODES);
             const { points, p1, p2 } = result;
@@ -335,13 +320,11 @@
             ctx.strokeStyle = COLORS.LIGHT_BLUE;
             ctx.lineWidth = 3;
             
-            // Draw first segment
             ctx.beginPath();
             ctx.moveTo(start.x, start.y);
             ctx.lineTo(p1.x, p1.y);
             ctx.stroke();
             
-            // Draw spring segments
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
             for (let i = 0; i < points.length; i++) {
@@ -349,21 +332,18 @@
             }
             ctx.stroke();
             
-            // Draw last segment
             ctx.beginPath();
             ctx.moveTo(p2.x, p2.y);
             ctx.lineTo(end.x, end.y);
             ctx.stroke();
         }
         
-        // Draw grid
         function drawGrid() {
             ctx.strokeStyle = COLORS.GRID_COLOR;
             ctx.lineWidth = 1;
             
             const gridSpacing = 50;
             
-            // Vertical lines
             for (let x = 0; x < canvas.width; x += gridSpacing) {
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
@@ -371,7 +351,6 @@
                 ctx.stroke();
             }
             
-            // Horizontal lines
             for (let y = 0; y < canvas.height; y += gridSpacing) {
                 ctx.beginPath();
                 ctx.moveTo(0, y);
@@ -380,7 +359,6 @@
             }
         }
         
-        // Calculate energy
         function calculateEnergy() {
             const r = y[2];
             const theta = y[3];
@@ -402,7 +380,6 @@
             };
         }
         
-        // Update UI information
         function updateInfo() {
             const r = y[2];
             const theta = y[3];
@@ -412,10 +389,8 @@
             const angle_deg = (theta * 180 / Math.PI) % 360;
             const actual_length = l_eq + r;
             
-            // Calculate energy
             const energy = calculateEnergy();
             
-            // Update info display
             timeInfo.textContent = `Time: ${t.toFixed(1)} s`;
             stateInfo.textContent = `Current state: r = ${r.toFixed(2)} m, θ = ${angle_deg.toFixed(1)}°`;
             lengthInfo.textContent = `Actual length: ${actual_length.toFixed(2)} m (l_eq = ${l_eq.toFixed(2)} m)`;
@@ -424,21 +399,15 @@
             framerateInfo.textContent = `Framerate: ${Math.round(actualFrameRate)} FPS (Target: ${targetFrameRate} FPS)`;
         }
         
-        // Main render function
         function render() {
-            // Clear canvas
             ctx.fillStyle = COLORS.BLACK;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Draw grid
             drawGrid();
-            
-            // Draw trace
             ctx.drawImage(traceCanvas, 0, 0);
             
             const point = getPointCoordinates();
             
-            // Update trace if running
             if (tracing && running && prevPoint) {
                 traceCtx.strokeStyle = COLORS.LIGHT_BLUE;
                 traceCtx.lineWidth = 2;
@@ -448,16 +417,13 @@
                 traceCtx.stroke();
             }
             
-            // Draw spring
             drawSpring(offset, point);
             
-            // Draw anchor
             ctx.fillStyle = draggingAnchor ? COLORS.BLUE : COLORS.LIGHT_BLUE;
             ctx.beginPath();
             ctx.arc(offset.x, offset.y, anchorRadius, 0, Math.PI * 2);
             ctx.fill();
             
-            // Draw anchor highlight
             ctx.strokeStyle = COLORS.WHITE;
             ctx.lineWidth = 2;
             ctx.globalAlpha = 0.5;
@@ -466,7 +432,6 @@
             ctx.stroke();
             ctx.globalAlpha = 1.0;
             
-            // Draw mass
             const massRadius = Math.max(5, Math.min(25, Math.floor(m * 4)));
             ctx.fillStyle = COLORS.YELLOW;
             ctx.beginPath();
@@ -474,26 +439,20 @@
             ctx.fill();
             
             prevPoint = point;
-            
-            // Update info displays
             updateInfo();
         }
         
-        // Toggle simulation and reset when stopping
         function toggleSimulation() {
             if (running) {
-                // If simulation is running, stop and reset
                 running = false;
                 resetSimulation();
                 startBtn.textContent = 'Start';
             } else {
-                // If simulation is stopped, start it
                 running = true;
                 startBtn.textContent = 'Stop';
             }
         }
         
-        // Reset simulation
         function resetSimulation() {
             t = 0.0;
             r_init = parseFloat(rSlider.value);
@@ -503,7 +462,6 @@
             traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
         }
         
-        // Update parameters from sliders
         function updateParamsFromSliders() {
             g = parseFloat(gSlider.value);
             k = parseFloat(kSlider.value);
@@ -526,9 +484,7 @@
             speedValue.textContent = `${timeScale.toFixed(1)}x`;
         }
         
-        // Anchor dragging
         function handleAnchorDragging(e) {
-            // Only process events that occur on our canvas
             if (e.target !== canvas) return;
             
             const rect = canvas.getBoundingClientRect();
@@ -562,44 +518,41 @@
             }
         }
         
-        // Function to safely stop dragging
         function stopDragging() {
             if (draggingAnchor) {
                 draggingAnchor = false;
-                // Don't auto-restart the simulation when dragging is canceled
                 wasRunning = false;
             }
         }
         
-        // Animation loop with improved time scaling
         function animate(timestamp) {
-            // Calculate actual delta time between frames
+            if (!tabActive) {
+                lastFrameTime = timestamp;
+                requestAnimationFrame(animate);
+                return;
+            }
+            
             if (lastFrameTime === 0) {
                 lastFrameTime = timestamp;
             }
             
-            const actualDeltaTime = (timestamp - lastFrameTime) / 1000; // Convert to seconds
+            const actualDeltaTime = (timestamp - lastFrameTime) / 1000;
             lastFrameTime = timestamp;
             
-            // Limit max delta time to prevent "freaking out" during page switches or tab focus changes
-            const maxDeltaTime = 0.1; // 100ms max delta
+            const maxDeltaTime = 0.1;
             const clampedDeltaTime = Math.min(actualDeltaTime, maxDeltaTime);
             
-            // Track frame rate for adaptive timing
             if (actualDeltaTime > 0) {
                 const currentFps = 1 / actualDeltaTime;
                 frameRateHistory.push(currentFps);
                 
-                // Keep only the last 30 frames for calculating average
                 if (frameRateHistory.length > 30) {
                     frameRateHistory.shift();
                 }
                 
-                // Calculate average frame rate
                 const avgFrameRate = frameRateHistory.reduce((sum, fps) => sum + fps, 0) / frameRateHistory.length;
                 actualFrameRate = avgFrameRate;
                 
-                // Auto-select best target frame rate (60, 30, 15) based on system capability
                 if (useAdaptiveTiming && frameRateHistory.length === 30) {
                     if (avgFrameRate >= 55) {
                         targetFrameRate = 60;
@@ -611,9 +564,7 @@
                 }
             }
             
-            // Use actual delta time for physics if running
             if (running) {
-                // Apply time scaling to the clamped measured frame time
                 const scaledDt = clampedDeltaTime * timeScale;
                 
                 const step = RK4_step(y, t, scaledDt);
@@ -630,7 +581,6 @@
             requestAnimationFrame(animate);
         }
         
-        // Event listeners
         startBtn.addEventListener('click', toggleSimulation);
         
         thetaSlider.addEventListener('input', updateParamsFromSliders);
@@ -641,14 +591,12 @@
         mSlider.addEventListener('input', updateParamsFromSliders);
         speedSlider.addEventListener('input', updateParamsFromSliders);
         
-        // Only attach event listeners to the canvas element
         canvas.addEventListener('mousedown', handleAnchorDragging);
         canvas.addEventListener('mouseup', handleAnchorDragging);
         canvas.addEventListener('mousemove', (e) => {
             if (draggingAnchor) handleAnchorDragging(e);
         });
         
-        // Handle keyboard controls
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space') {
                 toggleSimulation();
@@ -661,41 +609,31 @@
             }
         });
         
-        // Visibilitychange event to detect tab switching
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') {
-                // Tab is hidden, stop dragging and reset time tracking
+            tabActive = document.visibilityState === 'visible';
+            if (!tabActive) {
+                lastFrameTime = 0;
                 stopDragging();
-                lastFrameTime = 0; // This will reset the delta time calculation
             }
         });
         
-        // Stop dragging if mouse leaves the window
-        document.addEventListener('mouseleave', stopDragging);
-        
-        // Stop dragging when mouse leaves canvas
         canvas.addEventListener('mouseleave', stopDragging);
         
-        // Handle mouseup events outside the canvas
         document.addEventListener('mouseup', (e) => {
             if (e.target !== canvas && draggingAnchor) {
                 stopDragging();
             }
         });
         
-        // Handle window resize
         window.addEventListener('resize', () => {
             const oldWidth = canvas.width;
             const oldHeight = canvas.height;
             
-            // Resize canvas
             resizeCanvas();
             
-            // Adjust offset position proportionally
             offset.x = offset.x * (canvas.width / oldWidth);
             offset.y = offset.y * (canvas.height / oldHeight);
             
-            // Resize trace canvas
             const oldTraceCanvas = traceCanvas.cloneNode();
             oldTraceCanvas.getContext('2d').drawImage(traceCanvas, 0, 0);
             
@@ -707,7 +645,16 @@
                 0, 0, traceCanvas.width, traceCanvas.height);
         });
         
-        // Initialize
+        window.addEventListener('blur', () => {
+            tabActive = false;
+            stopDragging();
+        });
+        
+        window.addEventListener('focus', () => {
+            tabActive = true;
+            lastFrameTime = 0;
+        });
+        
         updateParamsFromSliders();
         lastFrameTime = 0;
         requestAnimationFrame(animate);
