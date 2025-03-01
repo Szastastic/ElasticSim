@@ -89,6 +89,7 @@
         <div id="length-info">Actual length: 2.00 m (l_eq = 2.00 m)</div>
         <div id="energy-info">Total Energy: 0.0 J</div>
         <div id="velocity-info">ṙ = 0.00 m/s, θ̇ = 0.00 rad/s</div>
+        <div id="framerate-info">Framerate: 60 FPS (Target: 60 FPS)</div>
         <hr>
         <div>Equations of motion:</div>
         <div>r̈ = (l+r)θ̇² - (k/m)r + g cos θ</div>
@@ -179,7 +180,13 @@
         let running = false;
         let tracing = true;
         let t = 0.0;
-        let delta_t = 0.016; // 60fps - accurate real-world time step
+        
+        // Improved time scaling parameters
+        let lastFrameTime = 0;
+        let frameRateHistory = [];
+        let targetFrameRate = 60; // Default target
+        let actualFrameRate = 60;
+        let useAdaptiveTiming = true;
         let timeScale = 1.0;  // Time scale factor
         
         let m = 2.0;
@@ -231,6 +238,7 @@
         const lengthInfo = document.getElementById('length-info');
         const energyInfo = document.getElementById('energy-info');
         const velocityInfo = document.getElementById('velocity-info');
+        const framerateInfo = document.getElementById('framerate-info');
         
         // Spring calculation function
         function calculateSpring(start, end, nodes) {
@@ -316,21 +324,6 @@
             const y_coord = offset.y + scale * actual_length * Math.cos(theta);
             
             return { x, y: y_coord };
-        }
-        
-        // Update physics
-        function updatePhysics() {
-            if (!running) return;
-            
-            // Apply time scaling
-            const scaled_dt = delta_t * timeScale;
-            
-            const step = RK4_step(y, t, scaled_dt);
-            for (let i = 0; i < 4; i++) {
-                y[i] += step[i];
-            }
-            
-            t += scaled_dt;
         }
         
         // Draw spring
@@ -427,6 +420,7 @@
             lengthInfo.textContent = `Actual length: ${actual_length.toFixed(2)} m (l_eq = ${l_eq.toFixed(2)} m)`;
             energyInfo.textContent = `Total Energy: ${energy.total.toFixed(1)} J`;
             velocityInfo.textContent = `ṙ = ${r_dot.toFixed(2)} m/s, θ̇ = ${theta_dot.toFixed(2)} rad/s`;
+            framerateInfo.textContent = `Framerate: ${Math.round(actualFrameRate)} FPS (Target: ${targetFrameRate} FPS)`;
         }
         
         // Main render function
@@ -574,6 +568,61 @@
             }
         }
         
+        // Animation loop with improved time scaling
+        function animate(timestamp) {
+            // Calculate actual delta time between frames
+            if (lastFrameTime === 0) {
+                lastFrameTime = timestamp;
+            }
+            
+            const actualDeltaTime = (timestamp - lastFrameTime) / 1000; // Convert to seconds
+            lastFrameTime = timestamp;
+            
+            // Track frame rate for adaptive timing
+            if (actualDeltaTime > 0) {
+                const currentFps = 1 / actualDeltaTime;
+                frameRateHistory.push(currentFps);
+                
+                // Keep only the last 30 frames for calculating average
+                if (frameRateHistory.length > 30) {
+                    frameRateHistory.shift();
+                }
+                
+                // Calculate average frame rate
+                const avgFrameRate = frameRateHistory.reduce((sum, fps) => sum + fps, 0) / frameRateHistory.length;
+                actualFrameRate = avgFrameRate;
+                
+                // Auto-select best target frame rate (60, 30, 15) based on system capability
+                if (useAdaptiveTiming && frameRateHistory.length === 30) {
+                    if (avgFrameRate >= 55) {
+                        targetFrameRate = 60;
+                    } else if (avgFrameRate >= 25) {
+                        targetFrameRate = 30;
+                    } else {
+                        targetFrameRate = 15;
+                    }
+                }
+            }
+            
+            // Use actual delta time for physics if running
+            if (running) {
+                // Apply time scaling to the actual measured frame time
+                const scaledDt = actualDeltaTime * timeScale;
+                
+                const step = RK4_step(y, t, scaledDt);
+                for (let i = 0; i < 4; i++) {
+                    y[i] += step[i];
+                }
+                
+                t += scaledDt;
+            }
+            
+            updateParamsFromSliders();
+            render();
+            
+            requestAnimationFrame(animate);
+        }
+        
         // Event listeners
         startBtn.addEventListener('click', toggleSimulation);
         
@@ -635,17 +684,10 @@
                 0, 0, traceCanvas.width, traceCanvas.height);
         });
         
-        // Animation loop
-        function animate() {
-            updateParamsFromSliders();
-            updatePhysics();
-            render();
-            requestAnimationFrame(animate);
-        }
-        
         // Initialize
         updateParamsFromSliders();
-        animate();
+        lastFrameTime = 0;
+        requestAnimationFrame(animate);
     </script>
 </body>
 </html>
