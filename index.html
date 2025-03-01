@@ -597,7 +597,12 @@
         
         // FIX: Add event listener for when mouse leaves the canvas
         canvas.addEventListener('mouseleave', stopDragging);
-        canvas.addEventListener('mouseleave', resetSimulation);
+        canvas.addEventListener('mouseleave', 
+                                functrion (event) {
+                                   if (running) {
+                                       toggleSimulation
+                                       }
+                                       }, false);
         
         // Handle keyboard controls
         document.addEventListener('keydown', (e) => {
