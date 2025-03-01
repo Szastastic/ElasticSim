@@ -564,7 +564,7 @@
             }
         }
         
-        // FIX: Add a function to stop dragging when mouse leaves the page
+        // Function to stop dragging when mouse leaves the page
         function stopDragging() {
             if (draggingAnchor) {
                 draggingAnchor = false;
@@ -591,18 +591,12 @@
             if (draggingAnchor) handleAnchorDragging(e);
         });
         
-        // FIX: Add event listeners to handle mouse leaving the window or page
+        // Add event listeners to handle mouse leaving the window or page
         document.addEventListener('mouseleave', stopDragging);
         window.addEventListener('blur', stopDragging);
         
-        // FIX: Add event listener for when mouse leaves the canvas
+        // Add event listener for when mouse leaves the canvas
         canvas.addEventListener('mouseleave', stopDragging);
-        canvas.addEventListener('mouseleave', 
-                                functrion (event) {
-                                   if (running) {
-                                       toggleSimulation
-                                       }
-                                       }, false);
         
         // Handle keyboard controls
         document.addEventListener('keydown', (e) => {
