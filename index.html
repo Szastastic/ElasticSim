@@ -35,6 +35,8 @@
         }
         .control-group {
             margin-bottom: 15px;
+            display: flex;
+            align-items: center;
         }
         .control-group label {
             display: inline-block;
@@ -43,7 +45,6 @@
         }
         .control-group input[type="range"] {
             width: 180px;
-            vertical-align: middle;
         }
         .control-group span {
             display: inline-block;
@@ -527,6 +528,9 @@
         
         // Anchor dragging
         function handleAnchorDragging(e) {
+            // Only process events that occur on our canvas
+            if (e.target !== canvas) return;
+            
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
@@ -558,13 +562,12 @@
             }
         }
         
-        // Function to stop dragging when mouse leaves the page
+        // Function to safely stop dragging
         function stopDragging() {
             if (draggingAnchor) {
                 draggingAnchor = false;
-                if (wasRunning) {
-                    toggleSimulation();
-                }
+                // Don't auto-restart the simulation when dragging is canceled
+                wasRunning = false;
             }
         }
         
@@ -577,6 +580,10 @@
             
             const actualDeltaTime = (timestamp - lastFrameTime) / 1000; // Convert to seconds
             lastFrameTime = timestamp;
+            
+            // Limit max delta time to prevent "freaking out" during page switches or tab focus changes
+            const maxDeltaTime = 0.1; // 100ms max delta
+            const clampedDeltaTime = Math.min(actualDeltaTime, maxDeltaTime);
             
             // Track frame rate for adaptive timing
             if (actualDeltaTime > 0) {
@@ -606,8 +613,8 @@
             
             // Use actual delta time for physics if running
             if (running) {
-                // Apply time scaling to the actual measured frame time
-                const scaledDt = actualDeltaTime * timeScale;
+                // Apply time scaling to the clamped measured frame time
+                const scaledDt = clampedDeltaTime * timeScale;
                 
                 const step = RK4_step(y, t, scaledDt);
                 for (let i = 0; i < 4; i++) {
@@ -634,18 +641,12 @@
         mSlider.addEventListener('input', updateParamsFromSliders);
         speedSlider.addEventListener('input', updateParamsFromSliders);
         
+        // Only attach event listeners to the canvas element
         canvas.addEventListener('mousedown', handleAnchorDragging);
         canvas.addEventListener('mouseup', handleAnchorDragging);
         canvas.addEventListener('mousemove', (e) => {
             if (draggingAnchor) handleAnchorDragging(e);
         });
-        
-        // Add event listeners to handle mouse leaving the window or page
-        document.addEventListener('mouseleave', stopDragging);
-        window.addEventListener('blur', stopDragging);
-        
-        // Add event listener for when mouse leaves the canvas
-        canvas.addEventListener('mouseleave', stopDragging);
         
         // Handle keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -657,6 +658,28 @@
                 if (!tracing) {
                     traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
                 }
+            }
+        });
+        
+        // Visibilitychange event to detect tab switching
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                // Tab is hidden, stop dragging and reset time tracking
+                stopDragging();
+                lastFrameTime = 0; // This will reset the delta time calculation
+            }
+        });
+        
+        // Stop dragging if mouse leaves the window
+        document.addEventListener('mouseleave', stopDragging);
+        
+        // Stop dragging when mouse leaves canvas
+        canvas.addEventListener('mouseleave', stopDragging);
+        
+        // Handle mouseup events outside the canvas
+        document.addEventListener('mouseup', (e) => {
+            if (e.target !== canvas && draggingAnchor) {
+                stopDragging();
             }
         });
         
