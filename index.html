@@ -160,7 +160,6 @@
   </div>
 
   <script>
-    // ---------- Canvas ----------
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
@@ -171,7 +170,6 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // ---------- Colors ----------
     const COLORS = {
       bg: '#000000',
       grid: '#1e1e1e',
@@ -181,43 +179,33 @@
       yellow: '#ffd246'
     };
 
-    // ---------- Spring drawing settings ----------
     const SPRING_DRAW = { nodes: 10, lead1Pct: 10, lead2Pct: 10 };
 
-    // ---------- View settings ----------
     let anchor = { x: canvas.width / 2 + 150, y: canvas.height / 4 };
     const pixelsPerMeter = 100;
 
-    // ---------- Simulation timing ----------
     let isRunning = false;
     let showTrace = true;
 
     let simTime = 0.0;
-    const physicsDt = 1 / 240;  // fixed physics step
+    const physicsDt = 1 / 240;
     let physicsAccumulator = 0.0;
 
-    // Render timing stats
     let lastFrameMs = 0;
     let fpsHistory = [];
     let measuredFps = 60;
     let tabIsActive = true;
 
-    // ---------- Physical parameters ----------
     let massKg = 2.0;
     let naturalLengthM = 2.0;
     let gravity = 9.81;
     let springK = 50.0;
 
-    // Drag (linear): F = -c v
     let dragOn = false;
     let dragC = 0.0;
 
-    // Speed factor
     let speedFactor = 1.0;
 
-    // ---------- State ----------
-    // We keep derivatives in code as normal names; dots only in UI.
-    // state = { r, theta, rVel, thetaVel }
     let state = {
       rVel: 0.0,
       thetaVel: 0.0,
@@ -225,7 +213,6 @@
       theta: Math.PI / 4
     };
 
-    // ---------- Trace layer ----------
     const traceCanvas = document.createElement('canvas');
     traceCanvas.width = canvas.width;
     traceCanvas.height = canvas.height;
@@ -233,12 +220,10 @@
     traceCtx.globalAlpha = 0.5;
     let previousBobPoint = null;
 
-    // ---------- Dragging anchor ----------
     let isDraggingAnchor = false;
     const anchorRadiusPx = 15;
     let resumeAfterDrag = false;
 
-    // ---------- Controls ----------
     const ui = {
       thetaSlider: document.getElementById('theta-slider'),
       rSlider: document.getElementById('r-slider'),
@@ -272,11 +257,9 @@
       equationsBlock: document.getElementById('equations-block')
     };
 
-    // ---------- Math helpers ----------
     function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
     function polarToScreen(rho, theta) {
-      // theta measured from downward vertical
       const x = anchor.x + pixelsPerMeter * rho * Math.sin(theta);
       const y = anchor.y + pixelsPerMeter * rho * Math.cos(theta);
       return { x, y };
@@ -287,10 +270,7 @@
       return polarToScreen(rho, state.theta);
     }
 
-    // ---------- Equations (for display) ----------
     function setEquationsDisplay() {
-      // Keep these as text-only so dots appear only in output.
-      // Using ρ = l₀ + r.
       const linesNoDrag = [
         'ρ = l₀ + r',
         'r̈ = ρ θ̇² − (k/m) r + g cosθ',
@@ -306,9 +286,9 @@
       ui.equationsBlock.innerHTML = lines.map(s => `<div class="line">${s}</div>`).join('');
     }
 
-    // ---------- Dynamics ----------
     function derivatives(s) {
       const rho = Math.max(1e-6, naturalLengthM + s.r);
+
       const rAccBase =
         rho * s.thetaVel * s.thetaVel
         - (springK / massKg) * s.r
@@ -321,9 +301,6 @@
       let rAcc = rAccBase;
       let thetaAcc = thetaAccBase;
 
-      // Linear drag model in generalized coordinates (simple damping choice):
-      // rAcc += -(c/m) rVel
-      // thetaAcc += -(c/m) thetaVel
       if (dragOn && dragC > 0) {
         const damping = dragC / massKg;
         rAcc += -damping * s.rVel;
@@ -366,14 +343,13 @@
       const k4 = derivatives(s4);
 
       return {
-        rVel: s.rVel + (dt / 6) * (k1.rAcc + 2*k2.rAcc + 2*k3.rAcc + k4.rAcc),
-        thetaVel: s.thetaVel + (dt / 6) * (k1.thetaAcc + 2*k2.thetaAcc + 2*k3.thetaAcc + k4.thetaAcc),
-        r: s.r + (dt / 6) * (k1.rVel + 2*k2.rVel + 2*k3.rVel + k4.rVel),
-        theta: s.theta + (dt / 6) * (k1.thetaVel + 2*k2.thetaVel + 2*k3.thetaVel + k4.thetaVel)
+        rVel: s.rVel + (dt / 6) * (k1.rAcc + 2 * k2.rAcc + 2 * k3.rAcc + k4.rAcc),
+        thetaVel: s.thetaVel + (dt / 6) * (k1.thetaAcc + 2 * k2.thetaAcc + 2 * k3.thetaAcc + k4.thetaAcc),
+        r: s.r + (dt / 6) * (k1.rVel + 2 * k2.rVel + 2 * k3.rVel + k4.rVel),
+        theta: s.theta + (dt / 6) * (k1.thetaVel + 2 * k2.thetaVel + 2 * k3.thetaVel + k4.thetaVel)
       };
     }
 
-    // ---------- Energy (correct) ----------
     function mechanicalEnergy() {
       const rho = naturalLengthM + state.r;
 
@@ -381,26 +357,28 @@
       const kineticAngular = 0.5 * massKg * rho * rho * state.thetaVel * state.thetaVel;
       const springPotential = 0.5 * springK * state.r * state.r;
 
-      // Potential for y-down coordinate with theta from downward vertical:
-      // U_g = - m g rho cos(theta)  (plus any constant)
       const gravityPotential = -massKg * gravity * rho * Math.cos(state.theta);
 
-      // Add constant shift so values are nicer (does not affect conservation)
       const shift = massKg * gravity * naturalLengthM;
 
       return kineticRadial + kineticAngular + springPotential + gravityPotential + shift;
     }
 
-    // ---------- Drawing ----------
     function drawGrid() {
       ctx.strokeStyle = COLORS.grid;
       ctx.lineWidth = 1;
       const spacing = 50;
       for (let x = 0; x < canvas.width; x += spacing) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
       }
       for (let y = 0; y < canvas.height; y += spacing) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
       }
     }
 
@@ -438,19 +416,16 @@
       ctx.strokeStyle = COLORS.lightBlue;
       ctx.lineWidth = 3;
 
-      // lead-in
       ctx.beginPath();
       ctx.moveTo(start.x, start.y);
       ctx.lineTo(leadStart.x, leadStart.y);
       ctx.stroke();
 
-      // core
       ctx.beginPath();
       ctx.moveTo(leadStart.x, leadStart.y);
       for (const p of points) ctx.lineTo(p.x, p.y);
       ctx.stroke();
 
-      // lead-out
       ctx.beginPath();
       ctx.moveTo(leadEnd.x, leadEnd.y);
       ctx.lineTo(end.x, end.y);
@@ -466,7 +441,6 @@
 
       const bob = bobPointFromState();
 
-      // trace
       if (showTrace && isRunning && previousBobPoint) {
         traceCtx.strokeStyle = COLORS.lightBlue;
         traceCtx.lineWidth = 2;
@@ -478,7 +452,6 @@
 
       drawSpring(anchor, bob);
 
-      // anchor
       ctx.fillStyle = isDraggingAnchor ? COLORS.blue : COLORS.lightBlue;
       ctx.beginPath();
       ctx.arc(anchor.x, anchor.y, anchorRadiusPx, 0, Math.PI * 2);
@@ -492,7 +465,6 @@
       ctx.stroke();
       ctx.globalAlpha = 1.0;
 
-      // mass
       const bobRadius = clamp(Math.floor(massKg * 4), 5, 25);
       ctx.fillStyle = COLORS.yellow;
       ctx.beginPath();
@@ -504,7 +476,6 @@
       updateReadouts();
     }
 
-    // ---------- UI readouts ----------
     function updateReadouts() {
       const rho = naturalLengthM + state.r;
       const thetaDeg = ((state.theta * 180 / Math.PI) % 360 + 360) % 360;
@@ -513,8 +484,7 @@
       ui.timeReadout.textContent = `Time: ${simTime.toFixed(2)} s`;
       ui.stateReadout.textContent = `State: r = ${state.r.toFixed(3)} m, θ = ${thetaDeg.toFixed(1)}°`;
       ui.lengthReadout.textContent = `Length: ρ = ${rho.toFixed(3)} m (l₀ = ${naturalLengthM.toFixed(2)} m)`;
-      ui.velocityReadout.textContent =
-        `Velocities: ṙ = ${state.rVel.toFixed(3)} m/s, θ̇ = ${state.thetaVel.toFixed(3)} rad/s`;
+      ui.velocityReadout.textContent = `Velocities: ṙ = ${state.rVel.toFixed(3)} m/s, θ̇ = ${state.thetaVel.toFixed(3)} rad/s`;
       ui.energyReadout.textContent = `Total Energy: ${E.toFixed(3)} J`;
       ui.dragReadout.textContent = dragOn ? `Air drag: ON (c = ${dragC.toFixed(2)} N·s/m)` : `Air drag: OFF`;
       ui.fpsReadout.textContent = `Framerate: ${Math.round(measuredFps)} FPS`;
@@ -531,7 +501,6 @@
       dragC = parseFloat(ui.cSlider.value);
       ui.cSlider.disabled = !dragOn;
 
-      // When paused, allow direct state adjustment
       if (!isRunning) {
         state.theta = parseFloat(ui.thetaSlider.value) * Math.PI / 180;
         state.r = parseFloat(ui.rSlider.value);
@@ -567,7 +536,7 @@
     function toggleRun() {
       if (isRunning) {
         isRunning = false;
-        resetSimulation(); // preserves your earlier stop->reset behavior
+        resetSimulation();
         ui.startBtn.textContent = 'Start';
       } else {
         isRunning = true;
@@ -575,7 +544,6 @@
       }
     }
 
-    // ---------- Anchor dragging ----------
     function handleAnchorMouse(e) {
       if (e.target !== canvas) return;
 
@@ -611,7 +579,6 @@
       }
     }
 
-    // ---------- Animation loop ----------
     function animate(frameMs) {
       if (!tabIsActive) {
         lastFrameMs = frameMs;
@@ -623,7 +590,6 @@
       const dtRender = (frameMs - lastFrameMs) / 1000;
       lastFrameMs = frameMs;
 
-      // FPS stats
       if (dtRender > 0) {
         const fpsNow = 1 / dtRender;
         fpsHistory.push(fpsNow);
@@ -631,16 +597,13 @@
         measuredFps = fpsHistory.reduce((s, v) => s + v, 0) / fpsHistory.length;
       }
 
-      // Update parameters each frame so equations/readouts reflect toggles immediately
       syncParametersFromControls();
 
-      // Clamp render dt to avoid huge catch-up steps
       const dtClamped = Math.min(dtRender, 0.1);
 
       if (isRunning) {
         physicsAccumulator += dtClamped * speedFactor;
 
-        // Safety cap on substeps
         const maxSubsteps = 2000;
         let steps = 0;
 
@@ -656,7 +619,6 @@
       requestAnimationFrame(animate);
     }
 
-    // ---------- Event wiring ----------
     ui.startBtn.addEventListener('click', toggleRun);
 
     ui.thetaSlider.addEventListener('input', syncParametersFromControls);
@@ -700,11 +662,9 @@
       const oldW = canvas.width, oldH = canvas.height;
       resizeCanvas();
 
-      // keep anchor proportional
       anchor.x *= canvas.width / oldW;
       anchor.y *= canvas.height / oldH;
 
-      // rescale trace buffer
       const oldTrace = document.createElement('canvas');
       oldTrace.width = traceCanvas.width;
       oldTrace.height = traceCanvas.height;
@@ -719,7 +679,6 @@
     window.addEventListener('blur', () => { tabIsActive = false; stopAnchorDrag(); });
     window.addEventListener('focus', () => { tabIsActive = true; lastFrameMs = 0; });
 
-    // ---------- Init ----------
     syncParametersFromControls();
     resetSimulation();
     requestAnimationFrame(animate);
