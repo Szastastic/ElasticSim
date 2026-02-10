@@ -1,13 +1,688 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elastic Pendulum Simulation</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elastic Pendulum Simulation</title>
+  <style>
+    body{
+      margin:0; padding:0; overflow:hidden;
+      background:#000; color:#dcdcdc; font-family:Arial,sans-serif;
+    }
+    #canvas{ display:block; }
+    .panel{
+      position:absolute;
+      background:rgba(20,20,20,0.8);
+      border:2px solid #404040;
+      border-radius:10px;
+      padding:15px;
+    }
+    #controls-panel{ left:20px; bottom:20px; width:360px; }
+    #info-panel{ left:20px; top:20px; width:360px; }
+
+    .title{
+      font-size:22px;
+      text-align:center;
+      margin:10px 0 16px;
+    }
+    .control-group{
+      margin-bottom:14px;
+      display:flex;
+      align-items:center;
+    }
+    .control-group label{
+      display:inline-block;
+      width:70px;
+      margin-right:10px;
+    }
+    .control-group input[type="range"]{ width:190px; }
+    .control-group span{
+      display:inline-block;
+      width:80px;
+      margin-left:10px;
+      text-align:left;
+    }
+    .toggle-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin:6px 0 12px;
+    }
+    .toggle-row input{ transform:scale(1.2); }
+    .btn{
+      padding:8px 15px;
+      border:none;
+      border-radius:5px;
+      cursor:pointer;
+      font-size:16px;
+      transition:background-color 0.2s;
+      width:100%;
+    }
+    .btn-start{ background:#5894f3; color:#fff; }
+    .btn-start:hover{ background:#2965a8; }
+
+    hr{ border:none; border-top:1px solid #404040; margin:12px 0; }
+
+    .eqs{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:13px;
+      line-height:1.5;
+      opacity:0.95;
+      margin-top:6px;
+    }
+    .eqs .line{ white-space:nowrap; }
+    .eqs .subtle{ opacity:0.85; }
+  </style>
 </head>
+
 <body>
-    <h1>Welcome to the Elastic Pendulum Simulation</h1>
-    <p>This is a simulation of an elastic pendulum.</p>
-    <script src="script.js"></script>
+  <canvas id="canvas"></canvas>
+
+  <div id="info-panel" class="panel">
+    <div class="title">Elastic Pendulum Simulation</div>
+
+    <div id="time-readout">Time: 0.00 s</div>
+    <div id="state-readout">State: r = 0.000 m, θ = 45.0°</div>
+    <div id="length-readout">Length: ρ = 2.000 m (l₀ = 2.00 m)</div>
+    <div id="velocity-readout">Velocities: ṙ = 0.000 m/s, θ̇ = 0.000 rad/s</div>
+    <div id="energy-readout">Total Energy: 0.000 J</div>
+    <div id="drag-readout">Air drag: OFF</div>
+    <div id="fps-readout">Framerate: 60 FPS</div>
+
+    <hr>
+
+    <div><span class="subtle">Equations of motion</span></div>
+    <div class="eqs" id="equations-block"></div>
+
+    <hr>
+
+    <div><span class="subtle">Controls</span></div>
+    <div>SPACE: Start/Stop | T: Toggle Trace | Drag Anchor to Position</div>
+  </div>
+
+  <div id="controls-panel" class="panel">
+    <div class="title">Simulation Controls</div>
+
+    <div class="control-group">
+      <label for="theta-slider">θ:</label>
+      <input type="range" id="theta-slider" min="-180" max="180" value="45" step="1" />
+      <span id="theta-value">45°</span>
+    </div>
+
+    <div class="control-group">
+      <label for="r-slider">r:</label>
+      <input type="range" id="r-slider" min="-1" max="1" value="0" step="0.01" />
+      <span id="r-value">0.00 m</span>
+    </div>
+
+    <div class="control-group">
+      <label for="g-slider">g:</label>
+      <input type="range" id="g-slider" min="0" max="20" value="9.81" step="0.1" />
+      <span id="g-value">9.81</span>
+    </div>
+
+    <div class="control-group">
+      <label for="k-slider">k:</label>
+      <input type="range" id="k-slider" min="10" max="200" value="50" step="1" />
+      <span id="k-value">50</span>
+    </div>
+
+    <div class="control-group">
+      <label for="l0-slider">l₀:</label>
+      <input type="range" id="l0-slider" min="0.5" max="5" value="2" step="0.1" />
+      <span id="l0-value">2.0 m</span>
+    </div>
+
+    <div class="control-group">
+      <label for="m-slider">m:</label>
+      <input type="range" id="m-slider" min="0.5" max="10" value="2" step="0.1" />
+      <span id="m-value">2.0</span>
+    </div>
+
+    <div class="toggle-row">
+      <input type="checkbox" id="drag-toggle" />
+      <label for="drag-toggle" style="cursor:pointer;">Enable air drag</label>
+    </div>
+
+    <div class="control-group">
+      <label for="c-slider">c:</label>
+      <input type="range" id="c-slider" min="0" max="10" value="0" step="0.1" />
+      <span id="c-value">0.0</span>
+    </div>
+
+    <div class="control-group">
+      <label for="speed-slider">Speed:</label>
+      <input type="range" id="speed-slider" min="0.1" max="2" value="1" step="0.1" />
+      <span id="speed-value">1.0x</span>
+    </div>
+
+    <button id="start-btn" class="btn btn-start">Start</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const COLORS = {
+      bg: '#000000',
+      grid: '#1e1e1e',
+      white: '#ffffff',
+      blue: '#2965a8',
+      lightBlue: '#589cf3',
+      yellow: '#ffd246'
+    };
+
+    const SPRING_DRAW = { nodes: 10, lead1Pct: 10, lead2Pct: 10 };
+
+    let anchor = { x: canvas.width / 2 + 150, y: canvas.height / 4 };
+    const pixelsPerMeter = 100;
+
+    let isRunning = false;
+    let showTrace = true;
+
+    let simTime = 0.0;
+    const physicsDt = 1 / 240;
+    let physicsAccumulator = 0.0;
+
+    let lastFrameMs = 0;
+    let fpsHistory = [];
+    let measuredFps = 60;
+    let tabIsActive = true;
+
+    let massKg = 2.0;
+    let naturalLengthM = 2.0;
+    let gravity = 9.81;
+    let springK = 50.0;
+
+    let dragOn = false;
+    let dragC = 0.0;
+
+    let speedFactor = 1.0;
+
+    let state = {
+      rVel: 0.0,
+      thetaVel: 0.0,
+      r: 0.0,
+      theta: Math.PI / 4
+    };
+
+    const traceCanvas = document.createElement('canvas');
+    traceCanvas.width = canvas.width;
+    traceCanvas.height = canvas.height;
+    const traceCtx = traceCanvas.getContext('2d');
+    traceCtx.globalAlpha = 0.5;
+    let previousBobPoint = null;
+
+    let isDraggingAnchor = false;
+    const anchorRadiusPx = 15;
+    let resumeAfterDrag = false;
+
+    const ui = {
+      thetaSlider: document.getElementById('theta-slider'),
+      rSlider: document.getElementById('r-slider'),
+      gSlider: document.getElementById('g-slider'),
+      kSlider: document.getElementById('k-slider'),
+      l0Slider: document.getElementById('l0-slider'),
+      mSlider: document.getElementById('m-slider'),
+      speedSlider: document.getElementById('speed-slider'),
+      dragToggle: document.getElementById('drag-toggle'),
+      cSlider: document.getElementById('c-slider'),
+
+      thetaValue: document.getElementById('theta-value'),
+      rValue: document.getElementById('r-value'),
+      gValue: document.getElementById('g-value'),
+      kValue: document.getElementById('k-value'),
+      l0Value: document.getElementById('l0-value'),
+      mValue: document.getElementById('m-value'),
+      speedValue: document.getElementById('speed-value'),
+      cValue: document.getElementById('c-value'),
+
+      startBtn: document.getElementById('start-btn'),
+
+      timeReadout: document.getElementById('time-readout'),
+      stateReadout: document.getElementById('state-readout'),
+      lengthReadout: document.getElementById('length-readout'),
+      velocityReadout: document.getElementById('velocity-readout'),
+      energyReadout: document.getElementById('energy-readout'),
+      dragReadout: document.getElementById('drag-readout'),
+      fpsReadout: document.getElementById('fps-readout'),
+
+      equationsBlock: document.getElementById('equations-block')
+    };
+
+    function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+    function polarToScreen(rho, theta) {
+      const x = anchor.x + pixelsPerMeter * rho * Math.sin(theta);
+      const y = anchor.y + pixelsPerMeter * rho * Math.cos(theta);
+      return { x, y };
+    }
+
+    function bobPointFromState() {
+      const rho = naturalLengthM + state.r;
+      return polarToScreen(rho, state.theta);
+    }
+
+    function setEquationsDisplay() {
+      const linesNoDrag = [
+        'ρ = l₀ + r',
+        'r̈ = ρ θ̇² − (k/m) r + g cosθ',
+        'θ̈ = −2 ṙ θ̇/ρ − (g/ρ) sinθ'
+      ];
+      const linesWithDrag = [
+        'ρ = l₀ + r',
+        'r̈ = ρ θ̇² − (k/m) r + g cosθ − (c/m) ṙ',
+        'θ̈ = −2 ṙ θ̇/ρ − (g/ρ) sinθ − (c/m) θ̇'
+      ];
+
+      const lines = (dragOn && dragC > 0) ? linesWithDrag : linesNoDrag;
+      ui.equationsBlock.innerHTML = lines.map(s => `<div class="line">${s}</div>`).join('');
+    }
+
+    function derivatives(s) {
+      const rho = Math.max(1e-6, naturalLengthM + s.r);
+
+      const rAccBase =
+        rho * s.thetaVel * s.thetaVel
+        - (springK / massKg) * s.r
+        + gravity * Math.cos(s.theta);
+
+      const thetaAccBase =
+        - (2.0 * s.rVel * s.thetaVel) / rho
+        - (gravity / rho) * Math.sin(s.theta);
+
+      let rAcc = rAccBase;
+      let thetaAcc = thetaAccBase;
+
+      if (dragOn && dragC > 0) {
+        const damping = dragC / massKg;
+        rAcc += -damping * s.rVel;
+        thetaAcc += -damping * s.thetaVel;
+      }
+
+      return {
+        rAcc,
+        thetaAcc,
+        rVel: s.rVel,
+        thetaVel: s.thetaVel
+      };
+    }
+
+    function rk4Step(s, dt) {
+      const k1 = derivatives(s);
+
+      const s2 = {
+        rVel: s.rVel + 0.5 * k1.rAcc * dt,
+        thetaVel: s.thetaVel + 0.5 * k1.thetaAcc * dt,
+        r: s.r + 0.5 * k1.rVel * dt,
+        theta: s.theta + 0.5 * k1.thetaVel * dt
+      };
+      const k2 = derivatives(s2);
+
+      const s3 = {
+        rVel: s.rVel + 0.5 * k2.rAcc * dt,
+        thetaVel: s.thetaVel + 0.5 * k2.thetaAcc * dt,
+        r: s.r + 0.5 * k2.rVel * dt,
+        theta: s.theta + 0.5 * k2.thetaVel * dt
+      };
+      const k3 = derivatives(s3);
+
+      const s4 = {
+        rVel: s.rVel + k3.rAcc * dt,
+        thetaVel: s.thetaVel + k3.thetaAcc * dt,
+        r: s.r + k3.rVel * dt,
+        theta: s.theta + k3.thetaVel * dt
+      };
+      const k4 = derivatives(s4);
+
+      return {
+        rVel: s.rVel + (dt / 6) * (k1.rAcc + 2 * k2.rAcc + 2 * k3.rAcc + k4.rAcc),
+        thetaVel: s.thetaVel + (dt / 6) * (k1.thetaAcc + 2 * k2.thetaAcc + 2 * k3.thetaAcc + k4.thetaAcc),
+        r: s.r + (dt / 6) * (k1.rVel + 2 * k2.rVel + 2 * k3.rVel + k4.rVel),
+        theta: s.theta + (dt / 6) * (k1.thetaVel + 2 * k2.thetaVel + 2 * k3.thetaVel + k4.thetaVel)
+      };
+    }
+
+    function mechanicalEnergy() {
+      const rho = naturalLengthM + state.r;
+
+      const kineticRadial = 0.5 * massKg * state.rVel * state.rVel;
+      const kineticAngular = 0.5 * massKg * rho * rho * state.thetaVel * state.thetaVel;
+      const springPotential = 0.5 * springK * state.r * state.r;
+
+      const gravityPotential = -massKg * gravity * rho * Math.cos(state.theta);
+
+      const shift = massKg * gravity * naturalLengthM;
+
+      return kineticRadial + kineticAngular + springPotential + gravityPotential + shift;
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = COLORS.grid;
+      ctx.lineWidth = 1;
+      const spacing = 50;
+      for (let x = 0; x < canvas.width; x += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += spacing) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function springPolylinePoints(start, end, nodes) {
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const L = Math.hypot(dx, dy);
+      if (L === 0) return { points: [], leadStart: start, leadEnd: end };
+
+      const ux = dx / L, uy = dy / L;
+
+      const leadStart = {
+        x: start.x + (SPRING_DRAW.lead1Pct / 100) * L * ux,
+        y: start.y + (SPRING_DRAW.lead1Pct / 100) * L * uy
+      };
+      const leadEnd = {
+        x: end.x - (SPRING_DRAW.lead2Pct / 100) * L * ux,
+        y: end.y - (SPRING_DRAW.lead2Pct / 100) * L * uy
+      };
+
+      const coreLength = L * (1 - (SPRING_DRAW.lead1Pct + SPRING_DRAW.lead2Pct) / 100);
+      const step = coreLength / nodes;
+
+      const points = [];
+      for (let i = 0; i <= nodes; i++) {
+        const dist = (SPRING_DRAW.lead1Pct / 100) * L + i * step;
+        points.push({ x: start.x + ux * dist, y: start.y + uy * dist });
+      }
+      return { points, leadStart, leadEnd };
+    }
+
+    function drawSpring(start, end) {
+      const { points, leadStart, leadEnd } = springPolylinePoints(start, end, SPRING_DRAW.nodes);
+
+      ctx.strokeStyle = COLORS.lightBlue;
+      ctx.lineWidth = 3;
+
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(leadStart.x, leadStart.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(leadStart.x, leadStart.y);
+      for (const p of points) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(leadEnd.x, leadEnd.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    }
+
+    function render() {
+      ctx.fillStyle = COLORS.bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      drawGrid();
+      ctx.drawImage(traceCanvas, 0, 0);
+
+      const bob = bobPointFromState();
+
+      if (showTrace && isRunning && previousBobPoint) {
+        traceCtx.strokeStyle = COLORS.lightBlue;
+        traceCtx.lineWidth = 2;
+        traceCtx.beginPath();
+        traceCtx.moveTo(previousBobPoint.x, previousBobPoint.y);
+        traceCtx.lineTo(bob.x, bob.y);
+        traceCtx.stroke();
+      }
+
+      drawSpring(anchor, bob);
+
+      ctx.fillStyle = isDraggingAnchor ? COLORS.blue : COLORS.lightBlue;
+      ctx.beginPath();
+      ctx.arc(anchor.x, anchor.y, anchorRadiusPx, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = COLORS.white;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(anchor.x, anchor.y, anchorRadiusPx - 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+
+      const bobRadius = clamp(Math.floor(massKg * 4), 5, 25);
+      ctx.fillStyle = COLORS.yellow;
+      ctx.beginPath();
+      ctx.arc(bob.x, bob.y, bobRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      previousBobPoint = bob;
+
+      updateReadouts();
+    }
+
+    function updateReadouts() {
+      const rho = naturalLengthM + state.r;
+      const thetaDeg = ((state.theta * 180 / Math.PI) % 360 + 360) % 360;
+      const E = mechanicalEnergy();
+
+      ui.timeReadout.textContent = `Time: ${simTime.toFixed(2)} s`;
+      ui.stateReadout.textContent = `State: r = ${state.r.toFixed(3)} m, θ = ${thetaDeg.toFixed(1)}°`;
+      ui.lengthReadout.textContent = `Length: ρ = ${rho.toFixed(3)} m (l₀ = ${naturalLengthM.toFixed(2)} m)`;
+      ui.velocityReadout.textContent = `Velocities: ṙ = ${state.rVel.toFixed(3)} m/s, θ̇ = ${state.thetaVel.toFixed(3)} rad/s`;
+      ui.energyReadout.textContent = `Total Energy: ${E.toFixed(3)} J`;
+      ui.dragReadout.textContent = dragOn ? `Air drag: ON (c = ${dragC.toFixed(2)} N·s/m)` : `Air drag: OFF`;
+      ui.fpsReadout.textContent = `Framerate: ${Math.round(measuredFps)} FPS`;
+    }
+
+    function syncParametersFromControls() {
+      gravity = parseFloat(ui.gSlider.value);
+      springK = parseFloat(ui.kSlider.value);
+      naturalLengthM = parseFloat(ui.l0Slider.value);
+      massKg = parseFloat(ui.mSlider.value);
+      speedFactor = parseFloat(ui.speedSlider.value);
+
+      dragOn = ui.dragToggle.checked;
+      dragC = parseFloat(ui.cSlider.value);
+      ui.cSlider.disabled = !dragOn;
+
+      if (!isRunning) {
+        state.theta = parseFloat(ui.thetaSlider.value) * Math.PI / 180;
+        state.r = parseFloat(ui.rSlider.value);
+      }
+
+      ui.thetaValue.textContent = `${ui.thetaSlider.value}°`;
+      ui.rValue.textContent = `${parseFloat(ui.rSlider.value).toFixed(2)} m`;
+      ui.gValue.textContent = `${gravity.toFixed(2)}`;
+      ui.kValue.textContent = `${springK.toFixed(0)}`;
+      ui.l0Value.textContent = `${naturalLengthM.toFixed(1)} m`;
+      ui.mValue.textContent = `${massKg.toFixed(1)}`;
+      ui.speedValue.textContent = `${speedFactor.toFixed(1)}x`;
+      ui.cValue.textContent = `${dragC.toFixed(1)}`;
+
+      setEquationsDisplay();
+    }
+
+    function resetSimulation() {
+      simTime = 0.0;
+      physicsAccumulator = 0.0;
+
+      state = {
+        rVel: 0.0,
+        thetaVel: 0.0,
+        r: parseFloat(ui.rSlider.value),
+        theta: parseFloat(ui.thetaSlider.value) * Math.PI / 180
+      };
+
+      previousBobPoint = null;
+      traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+    }
+
+    function toggleRun() {
+      if (isRunning) {
+        isRunning = false;
+        resetSimulation();
+        ui.startBtn.textContent = 'Start';
+      } else {
+        isRunning = true;
+        ui.startBtn.textContent = 'Stop';
+      }
+    }
+
+    function handleAnchorMouse(e) {
+      if (e.target !== canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const dist = Math.hypot(mx - anchor.x, my - anchor.y);
+
+      if (e.type === 'mousedown' && dist <= anchorRadiusPx) {
+        isDraggingAnchor = true;
+        if (isRunning) {
+          resumeAfterDrag = true;
+          toggleRun();
+        } else {
+          resumeAfterDrag = false;
+        }
+      } else if (e.type === 'mouseup' && isDraggingAnchor) {
+        isDraggingAnchor = false;
+        if (resumeAfterDrag) toggleRun();
+      }
+
+      if (isDraggingAnchor) {
+        traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+        anchor.x = mx;
+        anchor.y = my;
+      }
+    }
+
+    function stopAnchorDrag() {
+      if (isDraggingAnchor) {
+        isDraggingAnchor = false;
+        resumeAfterDrag = false;
+      }
+    }
+
+    function animate(frameMs) {
+      if (!tabIsActive) {
+        lastFrameMs = frameMs;
+        requestAnimationFrame(animate);
+        return;
+      }
+
+      if (lastFrameMs === 0) lastFrameMs = frameMs;
+      const dtRender = (frameMs - lastFrameMs) / 1000;
+      lastFrameMs = frameMs;
+
+      if (dtRender > 0) {
+        const fpsNow = 1 / dtRender;
+        fpsHistory.push(fpsNow);
+        if (fpsHistory.length > 30) fpsHistory.shift();
+        measuredFps = fpsHistory.reduce((s, v) => s + v, 0) / fpsHistory.length;
+      }
+
+      syncParametersFromControls();
+
+      const dtClamped = Math.min(dtRender, 0.1);
+
+      if (isRunning) {
+        physicsAccumulator += dtClamped * speedFactor;
+
+        const maxSubsteps = 2000;
+        let steps = 0;
+
+        while (physicsAccumulator >= physicsDt && steps < maxSubsteps) {
+          state = rk4Step(state, physicsDt);
+          simTime += physicsDt;
+          physicsAccumulator -= physicsDt;
+          steps++;
+        }
+      }
+
+      render();
+      requestAnimationFrame(animate);
+    }
+
+    ui.startBtn.addEventListener('click', toggleRun);
+
+    ui.thetaSlider.addEventListener('input', syncParametersFromControls);
+    ui.rSlider.addEventListener('input', syncParametersFromControls);
+    ui.gSlider.addEventListener('input', syncParametersFromControls);
+    ui.kSlider.addEventListener('input', syncParametersFromControls);
+    ui.l0Slider.addEventListener('input', syncParametersFromControls);
+    ui.mSlider.addEventListener('input', syncParametersFromControls);
+    ui.speedSlider.addEventListener('input', syncParametersFromControls);
+    ui.dragToggle.addEventListener('change', syncParametersFromControls);
+    ui.cSlider.addEventListener('input', syncParametersFromControls);
+
+    canvas.addEventListener('mousedown', handleAnchorMouse);
+    canvas.addEventListener('mouseup', handleAnchorMouse);
+    canvas.addEventListener('mousemove', (e) => { if (isDraggingAnchor) handleAnchorMouse(e); });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        toggleRun();
+        e.preventDefault();
+      } else if (e.code === 'KeyT') {
+        showTrace = !showTrace;
+        if (!showTrace) traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      tabIsActive = document.visibilityState === 'visible';
+      if (!tabIsActive) {
+        lastFrameMs = 0;
+        stopAnchorDrag();
+      }
+    });
+
+    canvas.addEventListener('mouseleave', stopAnchorDrag);
+    document.addEventListener('mouseup', (e) => {
+      if (e.target !== canvas && isDraggingAnchor) stopAnchorDrag();
+    });
+
+    window.addEventListener('resize', () => {
+      const oldW = canvas.width, oldH = canvas.height;
+      resizeCanvas();
+
+      anchor.x *= canvas.width / oldW;
+      anchor.y *= canvas.height / oldH;
+
+      const oldTrace = document.createElement('canvas');
+      oldTrace.width = traceCanvas.width;
+      oldTrace.height = traceCanvas.height;
+      oldTrace.getContext('2d').drawImage(traceCanvas, 0, 0);
+
+      traceCanvas.width = canvas.width;
+      traceCanvas.height = canvas.height;
+      traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+      traceCtx.drawImage(oldTrace, 0, 0, oldTrace.width, oldTrace.height, 0, 0, traceCanvas.width, traceCanvas.height);
+    });
+
+    window.addEventListener('blur', () => { tabIsActive = false; stopAnchorDrag(); });
+    window.addEventListener('focus', () => { tabIsActive = true; lastFrameMs = 0; });
+
+    syncParametersFromControls();
+    resetSimulation();
+    requestAnimationFrame(animate);
+  </script>
 </body>
 </html>
