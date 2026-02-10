@@ -5,5 +5,5 @@ It is a .html file, making it easy to use in any browser. It attempts to model t
 
 # AI Statement
 AI was used in the devleopment of this projected in the following capacities:
-(i) transitioning a python-based project into an HTML environment.
+(i) transitioning a python-based project into an HTML environment so my classmates could use the sim.
 
