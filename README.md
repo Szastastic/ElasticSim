@@ -1,3 +1,3 @@
 # ElasticSim
 This is a project that I completed in high school with a few updates. 
-It is an index.html file, making it easy to use in any browser. It attempts to model the motion of an elastic pendulum. 
+It is a .html file, making it easy to use in any browser. It attempts to model the motion of an elastic pendulum. 
